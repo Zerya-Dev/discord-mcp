@@ -8,7 +8,7 @@ that returns context "hooks", live per-member Discord permissions, and a remote 
 sign-in (`/mcp login`). Works as a claude.ai custom connector and in Claude Code.
 
 ```bash
-uv add "zerya-discord-mcp[mcp] @ git+https://github.com/Zerya-Dev/zerya-discord-mcp@v1.0.0#subdirectory=packages/zerya-discord-mcp"
+pip install "zerya-discord-mcp[mcp]"
 ```
 
 ```python

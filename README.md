@@ -10,6 +10,7 @@ Self-hosted MCP server · full-text index with a real query language · sign in 
 
 [![CI](https://github.com/Zerya-Dev/zerya-discord-mcp/actions/workflows/ci.yaml/badge.svg)](https://github.com/Zerya-Dev/zerya-discord-mcp/actions/workflows/ci.yaml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/zerya-discord-mcp.svg)](https://pypi.org/project/zerya-discord-mcp/)
 [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-remote%20%C2%B7%20OAuth-8b5cf6.svg)](https://modelcontextprotocol.io/)
 
@@ -167,10 +168,8 @@ app = zdm.asgi_app()  # serve at the root of ZDM_PUBLIC_URL (any thread; REST ho
 result = await zdm.commands.login(user_id, locale)  # wire /mcp into your command framework; result.to_embed()
 ```
 
-Install from a release tag:
-
 ```bash
-uv add "zerya-discord-mcp[mcp] @ git+https://github.com/Zerya-Dev/zerya-discord-mcp@v1.0.0#subdirectory=packages/zerya-discord-mcp"
+pip install "zerya-discord-mcp[mcp]"     # or: uv add "zerya-discord-mcp[mcp]"
 ```
 
 Needs the `MESSAGE_CONTENT` and `GUILD_MEMBERS` intents.

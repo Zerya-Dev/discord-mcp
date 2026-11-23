@@ -1,0 +1,35 @@
+name: Publish library to PyPI
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish, e.g. v1.0.0"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    # Trusted publishing: on pypi.org the project zerya-discord-mcp trusts this repository, this workflow file
+    # and the "pypi" environment. Only the library is published; the bot ships as a Docker image.
+    environment:
+      name: pypi
+      url: https://pypi.org/project/zerya-discord-mcp/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: astral-sh/setup-uv@v8.2.0
+
+      - name: Build the library
+        run: uv build --package zerya-discord-mcp
+
+      - name: Publish
+        run: uv publish

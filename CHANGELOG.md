@@ -5,8 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.0.0] - 2026-11-23
 
-First public release, distributed as the Docker image `ghcr.io/zerya-dev/zerya-discord-mcp-bot`; the
-library installs from the git tag.
+First public release: the bot as the Docker image `ghcr.io/zerya-dev/zerya-discord-mcp-bot`, the library on PyPI
+as `zerya-discord-mcp`.
 
 ### Added
 

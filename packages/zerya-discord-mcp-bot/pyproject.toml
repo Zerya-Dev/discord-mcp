@@ -1,0 +1,48 @@
+[project]
+name = "zerya-discord-mcp-bot"
+version = "0.1.0"
+description = "Self-hosted Discord bot that serves zerya-discord-mcp: history search for Claude over remote MCP"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Zerya", email = "us@zerya.dev" }]
+keywords = ["discord", "mcp", "model-context-protocol", "claude", "ai-agents", "search", "full-text-search", "hikari"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Communications :: Chat",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Indexing",
+    "Typing :: Typed",
+]
+requires-python = ">=3.14, <3.15"
+dependencies = [
+    "hikari-arc>=2.3",
+    "uvicorn>=0.54",
+    "zerya-discord-mcp[mcp]",
+]
+
+[project.urls]
+Homepage = "https://github.com/Zerya-Dev/zerya-discord-mcp"
+Documentation = "https://github.com/Zerya-Dev/zerya-discord-mcp#readme"
+Issues = "https://github.com/Zerya-Dev/zerya-discord-mcp/issues"
+Changelog = "https://github.com/Zerya-Dev/zerya-discord-mcp/blob/main/CHANGELOG.md"
+
+[project.scripts]
+start-app = "zerya_discord_mcp_bot.main:main"
+
+[build-system]
+requires = ["uv_build>=0.11.26, <0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "zerya_discord_mcp_bot"
+module-root = ""
+wheel-exclude = ["zerya_discord_mcp_bot/tests"]
+
+[tool.uv.sources]
+zerya-discord-mcp = { workspace = true }

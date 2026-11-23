@@ -1,3 +1,5 @@
+<div align="center">
+
 <a href="https://zerya.dev">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/zerya-logo-dark.svg">
@@ -15,6 +17,8 @@ by default, and every member signs in as themselves.
 [![PyPI](https://img.shields.io/pypi/v/zerya-discord-mcp.svg?color=0E3B34)](https://pypi.org/project/zerya-discord-mcp/)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-0E3B34.svg)](https://github.com/orgs/Zerya-Dev/packages/container/package/zerya-discord-mcp-bot)
 [![MCP](https://img.shields.io/badge/MCP-remote%20%C2%B7%20OAuth-0E3B34.svg)](https://modelcontextprotocol.io/)
+
+</div>
 
 > *"Where did we decide on the foundation logo?"* · *"Who deployed agroQ to Oracle and how?"* ·
 > *"Summarise what changed in #backend this week and reply to Ola's question."*

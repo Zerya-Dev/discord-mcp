@@ -167,7 +167,13 @@ app = zdm.asgi_app()  # serve at the root of ZDM_PUBLIC_URL (any thread; REST ho
 result = await zdm.commands.login(user_id, locale)  # wire /mcp into your command framework; result.to_embed()
 ```
 
-Install with `pip install "zerya-discord-mcp[mcp]"`. Needs the `MESSAGE_CONTENT` and `GUILD_MEMBERS` intents.
+Install from a release tag:
+
+```bash
+uv add "zerya-discord-mcp[mcp] @ git+https://github.com/Zerya-Dev/zerya-discord-mcp@v1.0.0#subdirectory=packages/zerya-discord-mcp"
+```
+
+Needs the `MESSAGE_CONTENT` and `GUILD_MEMBERS` intents.
 
 ## Development
 

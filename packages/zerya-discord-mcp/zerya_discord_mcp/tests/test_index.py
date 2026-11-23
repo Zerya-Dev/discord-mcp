@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from zerya_discord_mcp.index import writer
 from zerya_discord_mcp.index.db import Database
 from zerya_discord_mcp.index.models import MessageRecord
@@ -67,3 +69,13 @@ def test_vocabulary_variants(tmp_path: Path) -> None:
     vocab.load(db.reader(), force=True)
     assert [v.term for v in vocab.variants("wikipop")] == ["wikipopa"]
     assert vocab.variants("logo") == []  # short words never get spelling variants
+
+
+def test_vocabulary_loads_on_a_freshly_booted_machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # time.monotonic() counts from boot: right after a reboot (or on a new CI runner) it is small.
+    monkeypatch.setattr("zerya_discord_mcp.index.vocab.time.monotonic", lambda: 5.0)
+    db = _db(tmp_path)
+    db.write(lambda c: writer.upsert_messages(c, [MessageRecord(id=1, channel_id=9, author_id=1, content="wikipopa")]))
+    vocab = Vocabulary()
+    vocab.load(db.reader())
+    assert [v.term for v in vocab.variants("wikipop")] == ["wikipopa"]

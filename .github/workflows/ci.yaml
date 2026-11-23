@@ -1,0 +1,55 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install all dependencies
+        run: uv sync --all-packages --all-groups --locked
+
+      - name: Check dependencies for vulnerabilities
+        run: uv audit --locked
+
+      - name: Run Tests
+        run: uv run pytest
+
+      - name: Run Lint
+        run: uv run ruff check
+
+      - name: Run Formatter
+        run: uv format --check
+
+      - name: Run typecheck
+        run: uv run pyrefly check
+
+      # https://docs.astral.sh/uv/concepts/cache/#caching-in-continuous-integration
+      - name: Remove pre-built wheels from cache
+        run: uv cache prune --ci
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build the bot image
+        run: docker build -f packages/zerya-discord-mcp-bot/Dockerfile -t zerya-discord-mcp-bot:ci .
+
+      - name: Smoke test the image
+        run: >-
+          docker run --rm --entrypoint python zerya-discord-mcp-bot:ci
+          -c "import zerya_discord_mcp, zerya_discord_mcp_bot, sqlite3; print(sqlite3.sqlite_version)"

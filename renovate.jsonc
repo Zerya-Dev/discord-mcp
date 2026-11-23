@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "rangeStrategy": "bump",
+  "extends": [
+    "config:best-practices",
+    ":semanticCommitTypeAll(chore)",
+    "group:allNonMajor",
+    ":preserveSemverRanges"
+  ],
+  "packageRules": [
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "groupSlug": "github-actions",
+      "extends": ["schedule:weekly"]
+    },
+    {
+      "matchManagers": ["pep621"],
+      "groupName": "Python (uv)",
+      "groupSlug": "python-uv",
+      "extends": ["schedule:weekly"]
+    }
+  ],
+  "dependencyDashboard": false
+}

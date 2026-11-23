@@ -1,0 +1,31 @@
+repos:
+  # Run lint
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.15.4
+    hooks:
+      # Run the linter.
+      - id: ruff
+      # Run the formatter.
+      - id: ruff-format
+        args: [ "--check" ]
+  # Run the typechecker
+  - repo: local
+    hooks:
+      - id: pyrefly
+        name: typecheck
+        entry: uv run pyrefly check
+        language: system
+        types: [ python ]
+        pass_filenames: false
+        always_run: true
+  # Run the tests.
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: uv run pytest
+        language: system
+        types: [ python ]
+        pass_filenames: false
+        always_run: true

@@ -36,21 +36,26 @@ class Vocabulary:
     def __init__(self) -> None:
         self._by_length: dict[int, list[str]] = {}
         self._counts: dict[str, int] = {}
-        self._loaded_at = 0.0
+        # None = never loaded, or invalidated. Never compare a monotonic clock to 0: it counts from boot, so
+        # "0" can be less than REFRESH_SECONDS ago on a freshly started machine.
+        self._loaded_at: float | None = None
         self._lock = threading.Lock()
         self._refreshing = threading.Lock()
 
     def invalidate(self) -> None:
-        self._loaded_at = 0.0
+        self._loaded_at = None
 
     def load(self, conn: sqlite3.Connection, *, force: bool = False) -> None:
         """Loads the vocabulary on first use; afterwards a stale copy is refreshed in a background thread."""
-        if not force and self._counts and time.monotonic() - self._loaded_at >= REFRESH_SECONDS:
+        if not force and self._counts and self._stale():
             if self._refreshing.acquire(blocking=False):
                 path = conn.execute("PRAGMA database_list").fetchone()[2]
                 threading.Thread(target=self._refresh_from, args=(path,), daemon=True, name="zdm-vocab").start()
             return
         self._load(conn, force=force)
+
+    def _stale(self) -> bool:
+        return self._loaded_at is None or time.monotonic() - self._loaded_at >= REFRESH_SECONDS
 
     def _refresh_from(self, path: str) -> None:
         try:
@@ -64,7 +69,7 @@ class Vocabulary:
 
     def _load(self, conn: sqlite3.Connection, *, force: bool) -> None:
         with self._lock:
-            if not force and time.monotonic() - self._loaded_at < REFRESH_SECONDS:
+            if not force and not self._stale():
                 return
             counts: dict[str, int] = {}
             by_length: defaultdict[int, list[str]] = defaultdict(list)

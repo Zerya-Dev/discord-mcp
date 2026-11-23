@@ -1,4 +1,9 @@
-![discord-mcp by Zerya: permission-aware Discord history search for Claude and other AI agents](assets/social-preview.png)
+<a href="https://zerya.dev">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/zerya-logo-dark.svg">
+    <img src="assets/zerya-logo-light.svg" alt="Zerya" height="40">
+  </picture>
+</a>
 
 # discord-mcp
 

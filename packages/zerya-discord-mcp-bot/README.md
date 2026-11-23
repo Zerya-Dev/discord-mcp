@@ -5,9 +5,7 @@ permission-aware search over your whole Discord history for Claude and other AI 
 with Discord sign-in.
 
 ```bash
-pip install zerya-discord-mcp-bot
-DISCORD_BOT_TOKEN=... ZDM_GUILD_ID=... ZDM_PUBLIC_URL=https://mcp.example.com ZDM_DB_PATH=./zdm.sqlite3 start-app
-```
-
-Or with Docker: `ghcr.io/zerya-dev/zerya-discord-mcp-bot`. Setup guide:
+docker run -e DISCORD_BOT_TOKEN=... -e ZDM_GUILD_ID=... -e ZDM_PUBLIC_URL=https://mcp.example.com \
+  -v zdm-data:/data -p 8000:8000 ghcr.io/zerya-dev/zerya-discord-mcp-bot:1.0.0
+``` Setup guide:
 <https://github.com/Zerya-Dev/zerya-discord-mcp/blob/main/docs/self-hosting.md>.

@@ -1,33 +1,29 @@
-<div align="center">
+![discord-mcp by Zerya: permission-aware Discord history search for Claude and other AI agents](assets/social-preview.png)
 
-<img src="assets/icon.svg" width="72" height="72" alt="">
+# discord-mcp
 
-# zerya-discord-mcp
-
-**Permission-aware search over your whole Discord history, for Claude and other AI agents.**
-
-Self-hosted MCP server · full-text index with a real query language · sign in with Discord · read-only by default
+Permission-aware search over your whole Discord history, for Claude and other AI agents. Self-hosted, read-only
+by default, and every member signs in as themselves.
 
 [![CI](https://github.com/Zerya-Dev/discord-mcp/actions/workflows/ci.yaml/badge.svg)](https://github.com/Zerya-Dev/discord-mcp/actions/workflows/ci.yaml)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![PyPI](https://img.shields.io/pypi/v/zerya-discord-mcp.svg)](https://pypi.org/project/zerya-discord-mcp/)
-[![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/)
-[![MCP](https://img.shields.io/badge/MCP-remote%20%C2%B7%20OAuth-8b5cf6.svg)](https://modelcontextprotocol.io/)
-
-</div>
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0E3B34.svg)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/zerya-discord-mcp.svg?color=0E3B34)](https://pypi.org/project/zerya-discord-mcp/)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-0E3B34.svg)](https://github.com/orgs/Zerya-Dev/packages/container/package/zerya-discord-mcp-bot)
+[![MCP](https://img.shields.io/badge/MCP-remote%20%C2%B7%20OAuth-0E3B34.svg)](https://modelcontextprotocol.io/)
 
 > *"Where did we decide on the foundation logo?"* · *"Who deployed agroQ to Oracle and how?"* ·
 > *"Summarise what changed in #backend this week and reply to Ola's question."*
 
-Discord is where your team's decisions live, and its search is not built for an AI agent: 25 results per page,
-no context around a hit, no synonyms, no inflection, and every bot-token MCP server exposes everything the bot can
-see to everyone who uses it. **zerya-discord-mcp** indexes your server's history into SQLite and gives agents
-**hooks**: the matching spot *plus the conversation around it*, filtered by what the asking member can see on
-Discord **right now**.
+Your team's decisions live on Discord. Its search is not built for an AI agent. It returns 25 results per page,
+shows no context around a hit and knows no synonyms or inflection. Bot-token MCP servers also show everyone
+everything the bot can see.
+
+**discord-mcp** indexes your server's history into SQLite and gives agents **hooks**: the matching spot plus the
+conversation around it. Every result is filtered by what the asking member can see on Discord right now.
 
 ## Why this one
 
-| | zerya-discord-mcp | Typical Discord MCP servers |
+| | discord-mcp | Typical Discord MCP servers |
 |---|---|---|
 | Search | Full-history index (FTS5 + trigram), lemmas, typo variants, phrase/OR/exclude, `in:` `from:` `after:` `has:` filters, facets | Discord API pass-through or a scan of one channel |
 | Results | Hooks with surrounding messages, token budget, cursors | Raw message lists that overflow the context |
@@ -65,7 +61,7 @@ You need a Discord application with a bot, a server you manage, and an HTTPS dom
 ```bash
 # 1. Bot: discord.com/developers → New Application → Bot → enable MESSAGE CONTENT and SERVER MEMBERS intents.
 # 2. Run it (Docker; the image is non-root and keeps its index in /data):
-docker run -d --name zerya-discord-mcp \
+docker run -d --name discord-mcp \
   -e DISCORD_BOT_TOKEN=... \
   -e ZDM_GUILD_ID=123456789012345678 \
   -e ZDM_PUBLIC_URL=https://mcp.example.com \
@@ -189,4 +185,4 @@ recall@10.
 
 ## License
 
-[Apache-2.0](LICENSE) © Zerya
+[Apache-2.0](LICENSE) © [Zerya](https://zerya.dev)

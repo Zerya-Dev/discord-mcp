@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping! Bugs and ideas go to [issues](https://github.com/Zerya-Dev/zerya-discord-mcp/issues);
+Thanks for helping! Bugs and ideas go to [issues](https://github.com/Zerya-Dev/discord-mcp/issues);
 security problems to [SECURITY.md](SECURITY.md).
 
 ```bash

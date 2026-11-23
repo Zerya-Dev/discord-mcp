@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Please report vulnerabilities privately through
-[GitHub Security Advisories](https://github.com/Zerya-Dev/zerya-discord-mcp/security/advisories/new) or by email
+[GitHub Security Advisories](https://github.com/Zerya-Dev/discord-mcp/security/advisories/new) or by email
 to us@zerya.dev. Do not open a public issue. We aim to reply within 3 working days and to ship a fix for
 confirmed issues within 14 days.
 

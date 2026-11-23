@@ -2,7 +2,7 @@
 
 **Permission-aware search over your whole Discord history, for Claude and other AI agents.**
 
-The library behind [zerya-discord-mcp](https://github.com/Zerya-Dev/zerya-discord-mcp): embed it in a
+The library behind [zerya-discord-mcp](https://github.com/Zerya-Dev/discord-mcp): embed it in a
 [hikari](https://github.com/hikari-py/hikari) bot to get a SQLite full-text index of your server, a query engine
 that returns context "hooks", live per-member Discord permissions, and a remote MCP server with its own OAuth 2.1
 sign-in (`/mcp login`). Works as a claude.ai custom connector and in Claude Code.
@@ -22,4 +22,4 @@ app = zdm.asgi_app()  # ASGI app to serve at the root of public_url
 ```
 
 Prefer a ready-made bot? Use the Docker image `ghcr.io/zerya-dev/zerya-discord-mcp-bot`. Documentation, security model and configuration:
-<https://github.com/Zerya-Dev/zerya-discord-mcp>.
+<https://github.com/Zerya-Dev/discord-mcp>.

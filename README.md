@@ -8,7 +8,7 @@
 
 Self-hosted MCP server · full-text index with a real query language · sign in with Discord · read-only by default
 
-[![CI](https://github.com/Zerya-Dev/zerya-discord-mcp/actions/workflows/ci.yaml/badge.svg)](https://github.com/Zerya-Dev/zerya-discord-mcp/actions/workflows/ci.yaml)
+[![CI](https://github.com/Zerya-Dev/discord-mcp/actions/workflows/ci.yaml/badge.svg)](https://github.com/Zerya-Dev/discord-mcp/actions/workflows/ci.yaml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/zerya-discord-mcp.svg)](https://pypi.org/project/zerya-discord-mcp/)
 [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/)

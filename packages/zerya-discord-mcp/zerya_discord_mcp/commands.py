@@ -15,10 +15,11 @@ from zerya_discord_mcp.config import Config
 from zerya_discord_mcp.diagnostics import SetupCheck
 from zerya_discord_mcp.i18n import Lang, from_locale, t
 
-COLOR_INFO = 0x5B5BD6
-COLOR_OK = 0x2F9E6E
-COLOR_WARN = 0xE0A100
-COLOR_ERROR = 0xD9534F
+# Zerya brand: forest is the brand colour, ember the single point of attention for problems.
+COLOR_INFO = 0x0E3B34
+COLOR_OK = 0x0E3B34
+COLOR_WARN = 0xF1E15B
+COLOR_ERROR = 0xF1E15B
 
 
 @dataclass(frozen=True, slots=True)

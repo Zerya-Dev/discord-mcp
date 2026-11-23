@@ -18,30 +18,36 @@ _HEADERS = {
     "Cache-Control": "no-store",
 }
 
+# Zerya brand tokens. Fonts are not fetched from a CDN (a sign-in page should not send visitors' IPs to a third
+# party): Outfit/Geist are used when installed, otherwise the system font.
 _STYLE = """
-:root { --bg: #f6f5f2; --card: #fff; --fg: #1b1b1f; --muted: #66666e; --accent: #5b5bd6; --border: #e2e1dc;
-        --error: #c2410c; color-scheme: light dark; }
+:root { --bg: #F5F3EC; --card: #FBFAF6; --fg: #0F110F; --dimmed: #6E726E; --line: #DAD7CE; --forest: #0E3B34;
+        --on-forest: #F5F3EC; --focus: #0E3B34; color-scheme: light dark;
+        --heading: Outfit, Geist, system-ui, sans-serif; --body: Geist, system-ui, -apple-system, sans-serif;
+        --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #111114; --card: #1b1b20; --fg: #ececf1; --muted: #9c9ca8; --accent: #8b8bff; --border: #2c2c33;
-          --error: #fb923c; }
+  :root { --bg: #0F110F; --card: #24272A; --fg: #F5F3EC; --dimmed: #A3A7A3; --line: #3A3E41; --focus: #5CF0A0; }
 }
 * { box-sizing: border-box; }
-body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--bg);
-       color: var(--fg); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-main { width: 100%; max-width: 420px; background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-       padding: 28px; }
-h1 { font-size: 20px; margin: 0 0 4px; }
-p { margin: 8px 0; color: var(--muted); }
-strong { color: var(--fg); }
-code { font: 600 15px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--fg); }
-ol { padding-left: 20px; color: var(--muted); }
-input { width: 100%; margin: 16px 0 12px; padding: 12px 14px; font: 600 22px ui-monospace, monospace;
-        letter-spacing: 3px; text-align: center; text-transform: uppercase; border: 1px solid var(--border);
-        border-radius: 10px; background: var(--bg); color: var(--fg); }
-button { width: 100%; padding: 12px; border: 0; border-radius: 10px; background: var(--accent); color: #fff;
-         font: 600 16px system-ui, sans-serif; cursor: pointer; }
-.error { color: var(--error); }
-.small { font-size: 13px; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--bg);
+       color: var(--fg); font: 400 16px/24px var(--body); }
+main { width: 100%; max-width: 432px; background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+       padding: 32px; }
+.label { margin: 0 0 8px; font: 500 12px/16px var(--body); color: var(--dimmed); }
+h1 { margin: 0 0 16px; font: 500 22px/28px var(--heading); }
+p { margin: 0 0 16px; }
+ol { margin: 0 0 24px; padding-left: 24px; }
+li + li { margin-top: 8px; }
+code { font: 500 14px/20px var(--mono); white-space: nowrap; }
+input { width: 100%; margin: 0 0 16px; padding: 16px; font: 500 22px/28px var(--mono); letter-spacing: 4px;
+        text-align: center; text-transform: uppercase; border: 1px solid var(--line); border-radius: 8px;
+        background: var(--bg); color: var(--fg); }
+input:focus, button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+button { width: 100%; padding: 16px; border: 0; border-radius: 8px; background: var(--forest); color: var(--on-forest);
+         font: 500 16px/24px var(--body); cursor: pointer; }
+.error { margin: 0 0 16px; font-weight: 500; }
+.small { margin: 24px 0 0; font: 400 14px/20px var(--body); color: var(--dimmed); }
+.small + .small { margin-top: 8px; }
 """
 
 
@@ -78,6 +84,7 @@ def _form(
     host = html.escape(request.params.redirect_uri.host or "?")
     error_html = f'<p class="error">{html.escape(error)}</p>' if error else ""
     body = f"""
+<p class="label">discord-mcp</p>
 <h1>{t("page.title", lang, server=server)}</h1>
 <p>{t("page.wants", lang, client=client, access=access, server=server)}</p>
 <ol>

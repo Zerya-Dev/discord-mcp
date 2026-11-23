@@ -42,7 +42,7 @@ def env(tmp_path: Path) -> Iterator[Env]:
 
 async def test_login_in_english(env: Env) -> None:
     result = await env.commands.login(USER, "en-US")
-    assert result.title == "🔐 MCP sign-in code"
+    assert result.title == "MCP sign-in code"
     match = CODE_BLOCK.match(result.description)
     assert match is not None
     fields = dict(result.fields)
@@ -61,7 +61,7 @@ async def test_login_in_english(env: Env) -> None:
 async def test_login_in_polish_with_posting(tmp_path: Path) -> None:
     env = Env(tmp_path, write_enabled=True)
     result = await env.commands.login(USER, "pl")
-    assert result.title == "🔐 Kod logowania MCP"
+    assert result.title == "Kod logowania MCP"
     assert CODE_BLOCK.match(result.description)
     fields = dict(result.fields)
     assert re.fullmatch(rf"{RELATIVE} · jednorazowy", fields["Ważny"])
@@ -112,7 +112,7 @@ async def test_revoke(env: Env) -> None:
     assert none.description == f"Brak aktywnego połączenia `{other}`. Sprawdź `/mcp list`."
 
     one = await env.commands.revoke(USER, first)
-    assert (one.title, one.color) == ("✅ Disconnected", COLOR_OK)
+    assert (one.title, one.color) == ("Disconnected", COLOR_OK)
     assert one.description.startswith("Disconnected 1 client(s).")
     rest = await env.commands.revoke(USER, "ALL", "pl")
     assert rest.description.startswith("Odłączono klientów: 2.")
@@ -139,7 +139,7 @@ async def test_setup_marks_failed_and_optional_checks(env: Env) -> None:
     warned = await env.commands.setup("pl")
     assert warned.color == COLOR_WARN
     assert warned.description.startswith("Popraw pozycje oznaczone ❌")
-    assert warned.title == "🛠️ Konfiguracja MCP · Discord"
+    assert warned.title == "Konfiguracja MCP · Discord"
 
     env.checks = [SetupCheck(True, "Bot is on the server")]
     ready = await env.commands.setup()

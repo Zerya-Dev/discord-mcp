@@ -250,7 +250,7 @@ async def test_sign_in_page_shows_where_the_code_goes_in_the_browser_language(tm
         polish = await http.get(login_url, headers={"Accept-Language": "pl-PL,pl;q=0.9,en;q=0.8"})
         assert polish.headers["content-language"] == "pl"
         assert '<html lang="pl">' in polish.text
-        assert "<h1>Połącz z Zerya</h1>" in polish.text
+        assert "<h1>Połącz z serwerem Zerya</h1>" in polish.text
         assert "Po połączeniu wrócisz do <strong>claude.ai</strong>." in polish.text
 
         expired = await http.get("/login?request=nope", headers={"Accept-Language": "pl"})

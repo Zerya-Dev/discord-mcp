@@ -12,13 +12,14 @@ DEFAULT: Lang = "en"
 
 _TEXTS: dict[str, dict[Lang, str]] = {
     # /mcp login
-    "login.title": {"en": "🔐 MCP sign-in code", "pl": "🔐 Kod logowania MCP"},
+    "login.title": {"en": "MCP sign-in code", "pl": "Kod logowania MCP"},
     "login.valid": {"en": "Valid", "pl": "Ważny"},
     "login.valid_value": {"en": "{expires} · single use", "pl": "{expires} · jednorazowy"},
     "login.how": {"en": "How to use it", "pl": "Jak użyć"},
     "login.how_value": {
         "en": "Paste it on the **Connect to {server}** page that opened when you clicked *Connect* in Claude.",
-        "pl": "Wklej kod na stronie **Połącz z {server}**, która otworzyła się po kliknięciu *Connect* w Claude.",
+        "pl": "Wklej kod na stronie **Połącz z serwerem {server}**, która otworzyła się po kliknięciu *Connect* "
+        "w Claude.",
     },
     "login.not_connected": {"en": "Not connected yet?", "pl": "Jeszcze nie podłączony?"},
     "login.not_connected_value": {
@@ -44,7 +45,7 @@ _TEXTS: dict[str, dict[Lang, str]] = {
     },
     "error.title": {"en": "No access", "pl": "Brak dostępu"},
     # /mcp list
-    "list.title": {"en": "🔌 Connected AI clients", "pl": "🔌 Podłączeni klienci AI"},
+    "list.title": {"en": "Connected AI clients", "pl": "Podłączeni klienci AI"},
     "list.empty": {
         "en": "You have no connected clients. Connect Claude with `/mcp login`.",
         "pl": "Nie masz podłączonych klientów. Podłącz Claude przez `/mcp login`.",
@@ -72,13 +73,13 @@ _TEXTS: dict[str, dict[Lang, str]] = {
         "en": "No active connection `{target}`. Check `/mcp list`.",
         "pl": "Brak aktywnego połączenia `{target}`. Sprawdź `/mcp list`.",
     },
-    "revoke.done_title": {"en": "✅ Disconnected", "pl": "✅ Odłączono"},
+    "revoke.done_title": {"en": "Disconnected", "pl": "Odłączono"},
     "revoke.done": {
         "en": "Disconnected {count} client(s). Their tokens stopped working immediately.",
         "pl": "Odłączono klientów: {count}. Ich tokeny przestały działać od razu.",
     },
     # /mcp setup
-    "setup.title": {"en": "🛠️ MCP setup · {server}", "pl": "🛠️ Konfiguracja MCP · {server}"},
+    "setup.title": {"en": "MCP setup · {server}", "pl": "Konfiguracja MCP · {server}"},
     "setup.ok": {"en": "Everything is ready.", "pl": "Wszystko gotowe."},
     "setup.problems": {
         "en": "Fix the items marked ❌ (⚠️ are optional).",
@@ -89,7 +90,7 @@ _TEXTS: dict[str, dict[Lang, str]] = {
         "pl": "Członkowie łączą się przez /mcp login. Ustawienia są w zmiennych środowiskowych bota (ZDM_*).",
     },
     # Sign-in page
-    "page.title": {"en": "Connect to {server}", "pl": "Połącz z {server}"},
+    "page.title": {"en": "Connect to {server}", "pl": "Połącz z serwerem {server}"},
     "page.wants": {
         "en": "<strong>{client}</strong> wants to {access} the {server} Discord history as you.",
         "pl": "<strong>{client}</strong> chce {access} historię Discorda {server} jako Ty.",

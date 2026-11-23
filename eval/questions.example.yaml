@@ -1,0 +1,16 @@
+# Eval cases: real questions about our server, with the message IDs that must be found.
+# Copy to eval/questions.yaml (30–50 cases) and run: just eval
+#
+# question  – how an agent would phrase it (for humans reading the report)
+# queries   – what an agent would type into search, tried in order
+# expected  – message IDs (right click → Copy Message ID) any of which counts as a hit
+#
+# A case is found at rank r when an expected message lies inside the r-th hook (context included).
+# Metrics: recall@10, MRR and average response tokens.
+
+- question: gdzie ustaliliśmy logo dla fundacji
+  queries:
+    - "logo fundacja"
+    - "(logo|logotyp) (fundacja|foundation)"
+  expected:
+    - 123456789012345678

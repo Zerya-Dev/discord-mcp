@@ -42,26 +42,9 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  pypi:
-    runs-on: ubuntu-latest
-    # PyPI trusted publishing: add this repository and workflow as a trusted publisher for both projects on pypi.org.
-    environment: pypi
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: astral-sh/setup-uv@v8.2.0
-
-      - name: Build
-        run: uv build --all-packages
-
-      - name: Publish
-        run: uv publish
-
   github-release:
     runs-on: ubuntu-latest
-    needs: [image, pypi]
+    needs: [image]
     permissions:
       contents: write
     steps:

@@ -1223,7 +1223,7 @@ wheels = [
 
 [[package]]
 name = "zerya-discord-mcp"
-version = "1.0.0"
+version = "1.1.0"
 source = { editable = "packages/zerya-discord-mcp" }
 dependencies = [
     { name = "hikari" },
@@ -1259,7 +1259,7 @@ provides-extras = ["arc", "mcp"]
 
 [[package]]
 name = "zerya-discord-mcp-bot"
-version = "1.0.0"
+version = "1.1.0"
 source = { editable = "packages/zerya-discord-mcp-bot" }
 dependencies = [
     { name = "uvicorn" },
@@ -1274,7 +1274,7 @@ requires-dist = [
 
 [[package]]
 name = "zerya-discord-mcp-workspace"
-version = "1.0.0"
+version = "1.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "zerya-discord-mcp", extra = ["arc", "mcp"] },

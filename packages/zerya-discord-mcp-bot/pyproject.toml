@@ -1,6 +1,6 @@
 [project]
 name = "zerya-discord-mcp-bot"
-version = "1.0.0"
+version = "1.1.0"
 description = "Self-hosted Discord bot that serves zerya-discord-mcp: history search for Claude over remote MCP"
 readme = "README.md"
 license = "Apache-2.0"

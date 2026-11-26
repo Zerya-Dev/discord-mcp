@@ -1,6 +1,6 @@
 [project]
 name = "zerya-discord-mcp"
-version = "1.0.0"
+version = "1.1.0"
 description = "Permission-aware search over your Discord history for Claude and other AI agents (MCP server library)"
 readme = "README.md"
 license = "Apache-2.0"

@@ -3,10 +3,10 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.1.0] - 2026-11-26
 
 The library is split into a framework-neutral core and two optional integrations, each with one public module.
-Breaking changes are listed under Changed and Removed.
+Breaking changes are marked **Breaking** under Changed.
 
 ### Added
 

@@ -13,12 +13,10 @@ forward lifespan events to mounted apps still work.
 """
 
 import asyncio
-import contextvars
 import json
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
 from importlib import metadata
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from urllib.parse import urlparse
 
 from mcp.server.auth.routes import create_auth_routes, create_protected_resource_routes
@@ -32,35 +30,18 @@ from starlette.responses import Response
 from starlette.routing import Route
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from zerya_discord_mcp.access.oauth import SCOPE_READ, SCOPE_WRITE, Grant, OAuthProvider
+from zerya_discord_mcp.access.grants import SCOPE_READ, SCOPE_WRITE
+from zerya_discord_mcp.core import ZeryaDiscordMcp
 from zerya_discord_mcp.i18n import from_accept_language, t
+from zerya_discord_mcp.mcp._login import login_endpoint
+from zerya_discord_mcp.mcp._oauth import OAuthProvider, OAuthStore
+from zerya_discord_mcp.mcp._principal import Authenticate, Principal, current_principal
+from zerya_discord_mcp.mcp._tools import register_tools
 from zerya_discord_mcp.ratelimit import RateLimiter
-from zerya_discord_mcp.server.login import login_endpoint
-from zerya_discord_mcp.server.tools import register_tools
-
-if TYPE_CHECKING:
-    from zerya_discord_mcp.core import ZeryaDiscordMcp
 
 MCP_PATH = "/mcp"
 _OAUTH_LIMITED_PATHS = frozenset({"/register", "/token", "/revoke"})
 PROTECTED_RESOURCE_PATH = "/.well-known/oauth-protected-resource" + MCP_PATH
-
-
-@dataclass(frozen=True, slots=True)
-class Principal:
-    """Who a request acts for."""
-
-    user_id: int
-    grant: Grant | None = None
-
-    @property
-    def can_write(self) -> bool:
-        return self.grant is None or self.grant.can_write
-
-
-type Authenticate = Callable[[Mapping[str, str]], Awaitable[Principal | None]]
-
-current_principal: contextvars.ContextVar[Principal | None] = contextvars.ContextVar("zdm_principal", default=None)
 
 
 async def _json(
@@ -99,10 +80,24 @@ def _origin(public_url: str | None) -> str:
 
 
 class McpAsgiApp:
-    def __init__(self, core: ZeryaDiscordMcp, authenticate: Authenticate | None) -> None:
+    """MCP over streamable HTTP with its own OAuth server, for ``config.public_url``. Needs the ``[mcp]`` extra.
+
+    Serve it at the root of that origin (OAuth discovery uses ``/.well-known/`` paths); the MCP endpoint is
+    ``/mcp``, the sign-in page ``/login``. It works on any thread: Discord calls hop to the bot's loop.
+    ``authenticate`` replaces the built-in OAuth bearer check, e.g. for a host with its own sign-in.
+    """
+
+    def __init__(self, core: ZeryaDiscordMcp, authenticate: Authenticate | None = None) -> None:
         config = core.config
         self.core = core
         self.origin = _origin(config.public_url)
+        self.oauth = OAuthStore(
+            core.db,
+            core.grants,
+            access_ttl=config.access_token_ttl_seconds,
+            refresh_ttl=config.refresh_token_ttl_days * 86400,
+        )
+        core.add_housekeeping(self.oauth.housekeeping)
         self.authenticate = authenticate or self._bearer
         self.limiter = RateLimiter(config.rate_limit_per_minute)
         self.login_limiter = RateLimiter(20)
@@ -125,13 +120,13 @@ class McpAsgiApp:
 
         scopes = [SCOPE_READ, SCOPE_WRITE] if config.write_enabled else [SCOPE_READ]
         provider = OAuthProvider(
-            core.oauth,
+            self.oauth,
             login_url=f"{self.origin}/login",
             supported_scopes=scopes,
             redirect_hosts=config.oauth_redirect_hosts,
         )
         issuer = AnyHttpUrl(self.origin)
-        login = login_endpoint(core.oauth, str(issuer), scopes, core.server_name)  # iss must match the metadata exactly
+        login = login_endpoint(self.oauth, str(issuer), scopes, core.server_name)  # iss must match the metadata exactly
         routes: list[Route] = [
             *create_auth_routes(
                 provider,  # pyrefly: ignore[bad-argument-type]  # structural match of the SDK Protocol
@@ -162,7 +157,7 @@ class McpAsgiApp:
         scheme, _, token = headers.get("authorization", "").partition(" ")
         if scheme.lower() != "bearer" or not token:
             return None
-        grant = await asyncio.to_thread(self.core.oauth.verify_access, token.strip())
+        grant = await asyncio.to_thread(self.oauth.verify_access, token.strip())
         return Principal(user_id=grant.user_id, grant=grant) if grant else None
 
     def _login(self, endpoint: Callable[[Request], Awaitable[Response]]) -> Callable[[Request], Awaitable[Response]]:
@@ -264,10 +259,6 @@ def _version() -> str:
         return metadata.version("zerya-discord-mcp")
     except metadata.PackageNotFoundError:
         return "0.0.0"
-
-
-def build_app(core: ZeryaDiscordMcp, authenticate: Authenticate | None = None) -> McpAsgiApp:
-    return McpAsgiApp(core, authenticate)
 
 
 _INSTRUCTIONS = """\

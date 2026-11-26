@@ -32,6 +32,9 @@ jobs:
       - name: Run Lint
         run: uv run ruff check
 
+      - name: Check module boundaries
+        run: uv run lint-imports
+
       - name: Run Formatter
         run: uv format --check
 

@@ -4,7 +4,7 @@ version = "1.0.0"
 description = "Workspace root for zerya-discord-mcp and its standalone bot"
 requires-python = ">=3.14, <3.15"
 dependencies = [
-    "zerya-discord-mcp[mcp]",
+    "zerya-discord-mcp[arc,mcp]",
     "zerya-discord-mcp-bot",
 ]
 
@@ -17,6 +17,7 @@ dev = [
     "pre-commit>=4.6.0, <4.7",
     "pyrefly>=1.1.1,<1.2.0",
     "pyyaml>=6.0.3, <6.1",
+    "import-linter>=2.17,<2.18",
 ]
 
 [tool.uv]
@@ -35,7 +36,10 @@ zerya-discord-mcp = { workspace = true }
 zerya-discord-mcp-bot = { workspace = true }
 
 [tool.pytest.ini_options]
-testpaths = ["packages/zerya-discord-mcp/zerya_discord_mcp/tests", "packages/zerya-discord-mcp-bot/zerya_discord_mcp_bot/tests"]
+testpaths = [
+    "packages/zerya-discord-mcp/zerya_discord_mcp/tests",
+    "packages/zerya-discord-mcp-bot/zerya_discord_mcp_bot/tests",
+]
 asyncio_mode = "auto"
 
 [tool.ruff]
@@ -61,3 +65,74 @@ search-path = ["packages/zerya-discord-mcp", "packages/zerya-discord-mcp-bot"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["zerya_discord_mcp", "zerya_discord_mcp_bot"]
+
+# Module boundaries, checked by `lint-imports` (just lint, CI).
+[tool.importlinter]
+root_packages = ["zerya_discord_mcp", "zerya_discord_mcp_bot"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "The core is independent of the arc and MCP integrations and their dependencies"
+type = "forbidden"
+source_modules = [
+    "zerya_discord_mcp.access",
+    "zerya_discord_mcp.commands",
+    "zerya_discord_mcp.config",
+    "zerya_discord_mcp.core",
+    "zerya_discord_mcp.diagnostics",
+    "zerya_discord_mcp.i18n",
+    "zerya_discord_mcp.index",
+    "zerya_discord_mcp.ingest",
+    "zerya_discord_mcp.query",
+    "zerya_discord_mcp.ratelimit",
+    "zerya_discord_mcp.testing",
+    "zerya_discord_mcp.text",
+]
+forbidden_modules = ["zerya_discord_mcp.arc", "zerya_discord_mcp.mcp", "arc", "mcp", "starlette", "uvicorn"]
+
+[[tool.importlinter.contracts]]
+name = "Integrations do not depend on each other"
+type = "independence"
+modules = ["zerya_discord_mcp.arc", "zerya_discord_mcp.mcp"]
+
+[[tool.importlinter.contracts]]
+name = "The arc plugin is an adapter over the public core and the commands"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["zerya_discord_mcp.arc"]
+forbidden_modules = [
+    "zerya_discord_mcp.access",
+    "zerya_discord_mcp.index",
+    "zerya_discord_mcp.ingest",
+    "zerya_discord_mcp.query",
+    "mcp",
+    "starlette",
+]
+
+[[tool.importlinter.contracts]]
+name = "The index and the query engine never touch Discord"
+type = "forbidden"
+source_modules = ["zerya_discord_mcp.index", "zerya_discord_mcp.query"]
+forbidden_modules = ["hikari"]
+
+[[tool.importlinter.contracts]]
+name = "The standalone bot uses only the public API"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["zerya_discord_mcp_bot"]
+forbidden_modules = [
+    "zerya_discord_mcp.access",
+    "zerya_discord_mcp.commands",
+    "zerya_discord_mcp.core",
+    "zerya_discord_mcp.diagnostics",
+    "zerya_discord_mcp.index",
+    "zerya_discord_mcp.ingest",
+    "zerya_discord_mcp.query",
+    "zerya_discord_mcp.testing",
+    "zerya_discord_mcp.arc._plugin",
+    "zerya_discord_mcp.mcp._app",
+    "zerya_discord_mcp.mcp._login",
+    "zerya_discord_mcp.mcp._oauth",
+    "zerya_discord_mcp.mcp._principal",
+    "zerya_discord_mcp.mcp._tools",
+]

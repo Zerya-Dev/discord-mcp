@@ -1,14 +1,30 @@
-"""Grants issued through the real OAuth store API, without the HTTP flow (for command and housekeeping tests)."""
+"""Grants for tests: directly in the neutral store, or through the real MCP OAuth store API without HTTP."""
 
 import secrets
+import sqlite3
+import time
 
 from mcp.server.auth.provider import AuthorizationParams
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from pydantic import AnyUrl
 
-from zerya_discord_mcp.access.oauth import SCOPE_READ, SCOPE_WRITE, OAuthStore
+from zerya_discord_mcp.access.grants import SCOPE_READ, SCOPE_WRITE, GrantStore, insert_grant
+from zerya_discord_mcp.mcp._oauth import OAuthStore
 
 REDIRECT = "http://localhost:9999/callback"
+
+
+def add_grant(store: GrantStore, user_id: int, *scopes: str, client_name: str | None = "Claude") -> str:
+    """A grant as a transport would create it and the client then used, without any transport; returns its ID."""
+
+    def apply(conn: sqlite3.Connection) -> str:
+        now = int(time.time())
+        scope_list = list(scopes or (SCOPE_READ,))
+        grant_id = insert_grant(conn, user_id, secrets.token_hex(8), client_name, scope_list, now + 86400)
+        conn.execute("UPDATE grants SET last_used_at = ? WHERE id = ?", (now, grant_id))
+        return grant_id
+
+    return store.db.write(apply)
 
 
 def register_client(store: OAuthStore, name: str | None = "Claude") -> OAuthClientInformationFull:

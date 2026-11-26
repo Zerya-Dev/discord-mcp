@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock
 import hikari
 import pytest
 
-from zerya_discord_mcp import Config, ZeryaDiscordMcp
-from zerya_discord_mcp.access.oauth import Grant
+from zerya_discord_mcp import REQUIRED_INTENTS, Config, ZeryaDiscordMcp
+from zerya_discord_mcp.access.grants import Grant
 from zerya_discord_mcp.index import writer
 from zerya_discord_mcp.index.models import ChannelKind, ChannelRecord, MemberRecord, MessageRecord
 from zerya_discord_mcp.query.directory import load_channels
@@ -39,7 +39,7 @@ class Env:
 
 
 async def _env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, **config: Any) -> Env:
-    intents = hikari.Intents.ALL_UNPRIVILEGED | hikari.Intents.MESSAGE_CONTENT | hikari.Intents.GUILD_MEMBERS
+    intents = hikari.Intents.ALL_UNPRIVILEGED | REQUIRED_INTENTS
     bot = hikari.GatewayBot(token="MTIz.fake.token", intents=intents, banner=None)
     settings: dict[str, Any] = {"write_enabled": True} | config
     core = ZeryaDiscordMcp(bot, Config(db_path=tmp_path / "s.sqlite3", guild_id=GUILD_ID, **settings))

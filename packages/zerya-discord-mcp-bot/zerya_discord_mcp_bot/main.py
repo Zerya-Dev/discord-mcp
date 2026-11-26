@@ -14,8 +14,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
-from zerya_discord_mcp import Config, ZeryaDiscordMcp
-from zerya_discord_mcp_bot.commands import build_plugin, upsert_mcp_command
+from zerya_discord_mcp import REQUIRED_INTENTS, Config, ZeryaDiscordMcp, upsert_commands
+from zerya_discord_mcp.arc import McpPlugin
+from zerya_discord_mcp.mcp import McpAsgiApp
 
 logger = logging.getLogger("zerya_discord_mcp_bot")
 
@@ -65,7 +66,7 @@ def http_app(zdm: ZeryaDiscordMcp) -> Starlette:
         status = zdm.health()
         return JSONResponse(status, status_code=200 if status["ok"] else 503)
 
-    return Starlette(routes=[Route("/health", health), Mount("/", app=zdm.asgi_app())])
+    return Starlette(routes=[Route("/health", health), Mount("/", app=McpAsgiApp(zdm))])
 
 
 def main() -> None:
@@ -73,13 +74,14 @@ def main() -> None:
     configure_logging(settings.log_level)
     config = Config(_env_file=".env")
 
-    intents = hikari.Intents.ALL_UNPRIVILEGED | hikari.Intents.MESSAGE_CONTENT | hikari.Intents.GUILD_MEMBERS
+    intents = hikari.Intents.ALL_UNPRIVILEGED | REQUIRED_INTENTS
     bot = hikari.GatewayBot(token=settings.discord_bot_token, intents=intents, banner=None)
     zdm = ZeryaDiscordMcp(bot, config)
 
     if settings.zdm_bot_commands:
         client = arc.GatewayClient(bot, default_enabled_guilds=[config.guild_id], autosync=settings.zdm_bot_bulk_sync)
-        client.add_plugin(build_plugin(zdm))
+        # on_started orders start() against the command upsert and the HTTP server, so the bot runs the lifecycle.
+        client.add_plugin(McpPlugin(zdm, manage_lifecycle=False))
     else:
         logger.info("Slash commands disabled (ZDM_BOT_COMMANDS=false)")
 
@@ -92,9 +94,8 @@ def main() -> None:
         try:
             await zdm.start()
             if settings.zdm_bot_commands and not settings.zdm_bot_bulk_sync:
-                await upsert_mcp_command(bot, config.guild_id)
-            for line in await zdm.setup_report():
-                logger.log(logging.INFO if line.ok else logging.WARNING, "setup: %s", line)
+                await upsert_commands(bot.rest, config.guild_id)
+            await zdm.log_setup_report()
         except Exception:
             # Fail fast: a half-started process with a green health check is worse than a restart loop.
             logger.exception("Startup failed, shutting down")

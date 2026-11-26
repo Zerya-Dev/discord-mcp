@@ -6,12 +6,12 @@ import logging
 import sqlite3
 import time
 from collections.abc import Callable, Coroutine
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import hikari
 
-from zerya_discord_mcp.access.oauth import Grant, OAuthStore
+from zerya_discord_mcp.access.grants import Grant, GrantStore
 from zerya_discord_mcp.access.permissions import AccessControl
 from zerya_discord_mcp.commands import McpCommands
 from zerya_discord_mcp.config import Config
@@ -29,11 +29,6 @@ from zerya_discord_mcp.query.read import Reader
 from zerya_discord_mcp.query.search import SearchEngine
 from zerya_discord_mcp.ratelimit import RateLimiter
 from zerya_discord_mcp.text import warm_up
-
-if TYPE_CHECKING:
-    from starlette.types import ASGIApp
-
-    from zerya_discord_mcp.server.app import Authenticate
 
 logger = logging.getLogger("zerya_discord_mcp")
 
@@ -233,10 +228,15 @@ class Tools:
 
 
 class ZeryaDiscordMcp:
-    """Embeds Discord history search into an existing hikari bot.
+    """Embeds Discord history search into an existing hikari bot, independent of any command or HTTP framework.
 
-    Create it before ``bot.run()`` (it subscribes to gateway events), call ``start()`` on StartedEvent and
-    ``stop()`` on StoppingEvent, and mount ``asgi_app()`` in the host's HTTP server.
+    Create it before ``bot.run()`` (it subscribes to gateway events). Integrations build on it:
+
+    - ``zerya_discord_mcp.arc.McpPlugin`` (``[arc]`` extra) starts and stops it with the bot and adds the commands.
+    - ``zerya_discord_mcp.mcp.McpAsgiApp`` (``[mcp]`` extra) serves it to agents over MCP with OAuth sign-in.
+
+    Without arc, call ``start()`` on StartedEvent and ``stop()`` on StoppingEvent and wire ``commands`` into
+    your command framework (``command_builders()`` has the command definitions).
     """
 
     def __init__(self, bot: hikari.GatewayBot, config: Config) -> None:
@@ -253,13 +253,8 @@ class ZeryaDiscordMcp:
         self.sink.on_structure_change(self.access.invalidate)
         self.sink.on_member_change(self.access.invalidate_user)
         self.sink.on_thread_members_change(self.access.invalidate_thread)
-        self.oauth = OAuthStore(
-            self.db,
-            access_ttl=config.access_token_ttl_seconds,
-            refresh_ttl=config.refresh_token_ttl_days * 86400,
-            login_ttl=config.login_code_ttl_seconds,
-        )
-        self.commands = McpCommands(self.oauth, config, self._is_member, self.setup_report, self.server_name)
+        self.grants = GrantStore(self.db, login_ttl=config.login_code_ttl_seconds)
+        self.commands = McpCommands(self.grants, config, self._is_member, self.setup_report, self.server_name)
         self.tools = Tools(self)
         self.backfill: Backfill | None = None
         self._maintenance_task: asyncio.Task[None] | None = None
@@ -267,6 +262,7 @@ class ZeryaDiscordMcp:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._started = False
         self._ready_count = 0
+        self._housekeepers: list[Callable[[], dict[str, int]]] = [self.grants.housekeeping]
         self.status: dict[str, Any] = {"last_sync": None, "last_error": None}
         bot.subscribe(hikari.ShardReadyEvent, self._on_shard_ready)
 
@@ -280,7 +276,16 @@ class ZeryaDiscordMcp:
     def _is_member(self, user_id: int) -> bool:
         return self.bot.cache.get_member(self.config.guild_id, user_id) is not None
 
+    def add_housekeeping(self, prune: Callable[[], dict[str, int]]) -> None:
+        """Runs ``prune`` (synchronous, in a worker thread) with every maintenance pass.
+
+        For integrations that keep their own tables; it returns counts of removed rows by kind, for the log.
+        """
+        self._housekeepers.append(prune)
+
     async def start(self, *, backfill: bool = True) -> None:
+        if self._started:
+            raise RuntimeError("zerya-discord-mcp is already started")
         missing = REQUIRED_INTENTS & ~self.bot.intents
         if missing:
             raise RuntimeError(f"zerya-discord-mcp needs these gateway intents: {missing!r}")
@@ -332,7 +337,9 @@ class ZeryaDiscordMcp:
                 delay = min(delay * 2, 900.0)
 
     def _housekeeping(self) -> None:
-        pruned = self.oauth.housekeeping()
+        pruned: dict[str, int] = {}
+        for prune in self._housekeepers:
+            pruned.update(prune())
         cutoff = int(time.time()) - self.config.audit_retention_days * 86400
         pruned["audit"] = self.db.write(
             lambda conn: conn.execute("DELETE FROM audit_log WHERE created_at < ?", (cutoff,)).rowcount
@@ -377,6 +384,11 @@ class ZeryaDiscordMcp:
     async def setup_report(self) -> list[SetupCheck]:
         """Checks a server owner can act on: guild membership, bot permissions, public URL, invite link."""
         return await self.on_bot_loop(lambda: run_setup_checks(self))
+
+    async def log_setup_report(self) -> None:
+        """Logs the setup checklist: problems as warnings, so they stand out in the host's log."""
+        for check in await self.setup_report():
+            logger.log(logging.INFO if check.ok else logging.WARNING, "setup: %s", check)
 
     async def on_bot_loop[T](self, fn: Callable[[], Coroutine[Any, Any, T]]) -> T:
         """Runs a coroutine on the bot's event loop (hikari REST and cache live there)."""
@@ -431,13 +443,3 @@ class ZeryaDiscordMcp:
             await asyncio.to_thread(self.db.write, write)
         except sqlite3.Error:
             logger.exception("Audit log write failed")
-
-    def asgi_app(self, authenticate: Authenticate | None = None) -> ASGIApp:
-        """MCP over streamable HTTP with its own OAuth server, at ``config.public_url``. Needs the ``[mcp]`` extra.
-
-        Mount it at the root of that origin (OAuth discovery uses ``/.well-known/`` paths); the MCP endpoint is
-        ``/mcp``, the sign-in page ``/login``.
-        """
-        from zerya_discord_mcp.server.app import build_app
-
-        return build_app(self, authenticate)

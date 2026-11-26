@@ -80,6 +80,10 @@ _TEXTS: dict[str, dict[Lang, str]] = {
     },
     # /mcp setup
     "setup.title": {"en": "MCP setup · {server}", "pl": "Konfiguracja MCP · {server}"},
+    "setup.forbidden": {
+        "en": "Manage Server permission required.",
+        "pl": "Wymagane uprawnienie Zarządzanie serwerem.",
+    },
     "setup.ok": {"en": "Everything is ready.", "pl": "Wszystko gotowe."},
     "setup.problems": {
         "en": "Fix the items marked ❌ (⚠️ are optional).",

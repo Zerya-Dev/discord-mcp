@@ -1,14 +1,13 @@
 """MCP tool definitions: thin adapters from MCP calls to ``ZeryaDiscordMcp.tools``."""
 
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated, Any
 
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
-if TYPE_CHECKING:
-    from zerya_discord_mcp.core import ZeryaDiscordMcp
-    from zerya_discord_mcp.server.app import Principal
+from zerya_discord_mcp.core import ZeryaDiscordMcp
+from zerya_discord_mcp.mcp._principal import Principal, current_principal
 
 READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 UNTRUSTED_NOTE = (
@@ -17,8 +16,6 @@ UNTRUSTED_NOTE = (
 
 
 def _principal(ctx: Context[Any, Any]) -> Principal:
-    from zerya_discord_mcp.server.app import current_principal
-
     request: Any = None
     try:
         request = ctx.request_context.request

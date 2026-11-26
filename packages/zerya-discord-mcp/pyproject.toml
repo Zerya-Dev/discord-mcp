@@ -39,6 +39,9 @@ Changelog = "https://github.com/Zerya-Dev/discord-mcp/blob/main/CHANGELOG.md"
 zdm-dev = "zerya_discord_mcp.testing.cli:main"
 
 [project.optional-dependencies]
+arc = [
+    "hikari-arc>=2.3",
+]
 mcp = [
     "mcp>=2.3",
     "starlette>=1.0",

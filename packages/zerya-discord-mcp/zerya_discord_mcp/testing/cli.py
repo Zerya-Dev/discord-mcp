@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from zerya_discord_mcp.access.oauth import OAuthStore
+from zerya_discord_mcp.access.grants import GrantStore
 from zerya_discord_mcp.index.db import Database
 from zerya_discord_mcp.index.vocab import Vocabulary
 from zerya_discord_mcp.query.directory import Directory
@@ -91,7 +91,7 @@ def main(argv: list[str] | None = None) -> None:
                 print(summarize(results, args.k))
             case "login-code":
                 member = Directory(conn, allowed).resolve_member(args.member)
-                store = OAuthStore(db, access_ttl=3600, refresh_ttl=90 * 86400, login_ttl=600)
+                store = GrantStore(db, login_ttl=600)
                 code, _ = store.create_login_code(member.id)
                 print(f"Sign-in code for @{member.username}: {code} (valid 10 min, one use)")
             case _:

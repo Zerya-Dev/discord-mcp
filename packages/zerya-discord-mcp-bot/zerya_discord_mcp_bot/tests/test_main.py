@@ -6,7 +6,7 @@ import hikari
 import httpx2 as httpx
 import pytest
 
-from zerya_discord_mcp import Config, ZeryaDiscordMcp
+from zerya_discord_mcp import REQUIRED_INTENTS, Config, ZeryaDiscordMcp
 from zerya_discord_mcp_bot.main import _RedactQuery, http_app
 
 ORIGIN = "http://localhost"
@@ -38,7 +38,7 @@ def test_records_without_tuple_args_pass_untouched() -> None:
 
 @pytest.fixture
 async def zdm(tmp_path: Path) -> AsyncIterator[ZeryaDiscordMcp]:
-    intents = hikari.Intents.ALL_UNPRIVILEGED | hikari.Intents.MESSAGE_CONTENT | hikari.Intents.GUILD_MEMBERS
+    intents = hikari.Intents.ALL_UNPRIVILEGED | REQUIRED_INTENTS
     bot = hikari.GatewayBot(token="MTIz.fake.token", intents=intents, banner=None)  # never started: no network
     core = ZeryaDiscordMcp(bot, Config(db_path=tmp_path / "b.sqlite3", guild_id=1000, public_url=ORIGIN))
     yield core

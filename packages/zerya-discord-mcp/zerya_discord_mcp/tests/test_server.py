@@ -11,9 +11,11 @@ import httpx2 as httpx
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
-from zerya_discord_mcp import Config, ZeryaDiscordMcp
+from zerya_discord_mcp import REQUIRED_INTENTS, Config, ZeryaDiscordMcp
 from zerya_discord_mcp.index import writer
 from zerya_discord_mcp.index.models import ChannelKind, ChannelRecord, MessageRecord
+from zerya_discord_mcp.mcp import McpAsgiApp
+from zerya_discord_mcp.mcp._oauth import OAuthStore
 from zerya_discord_mcp.testing.fixtures import GUILD_ID
 
 USER = 42
@@ -22,7 +24,7 @@ REDIRECT = "http://localhost:9999/callback"
 
 
 def _core(tmp_path: Path, **config: Any) -> ZeryaDiscordMcp:
-    intents = hikari.Intents.ALL_UNPRIVILEGED | hikari.Intents.MESSAGE_CONTENT | hikari.Intents.GUILD_MEMBERS
+    intents = hikari.Intents.ALL_UNPRIVILEGED | REQUIRED_INTENTS
     bot = hikari.GatewayBot(token="MTIz.fake.token", intents=intents, banner=None)
     settings: dict[str, Any] = {"public_url": ORIGIN} | config
     core = ZeryaDiscordMcp(bot, Config(db_path=tmp_path / "s.sqlite3", guild_id=GUILD_ID, **settings))
@@ -42,8 +44,18 @@ def _core(tmp_path: Path, **config: Any) -> ZeryaDiscordMcp:
     return core
 
 
+def _tokens(core: ZeryaDiscordMcp) -> OAuthStore:
+    config = core.config
+    return OAuthStore(
+        core.db,
+        core.grants,
+        access_ttl=config.access_token_ttl_seconds,
+        refresh_ttl=config.refresh_token_ttl_days * 86400,
+    )
+
+
 def _client(core: ZeryaDiscordMcp, headers: dict[str, str] | None = None) -> httpx.AsyncClient:
-    return httpx.AsyncClient(transport=httpx.ASGITransport(app=core.asgi_app()), base_url=ORIGIN, headers=headers)
+    return httpx.AsyncClient(transport=httpx.ASGITransport(app=McpAsgiApp(core)), base_url=ORIGIN, headers=headers)
 
 
 async def _sign_in(core: ZeryaDiscordMcp, http: httpx.AsyncClient) -> dict[str, str]:
@@ -80,7 +92,7 @@ async def _sign_in(core: ZeryaDiscordMcp, http: httpx.AsyncClient) -> dict[str, 
     wrong = await http.post("/login", data={"request": request_id, "code": "AAAA-AAAA"})
     assert wrong.status_code == 400 and "Attempts left: 4" in wrong.text
 
-    code, _ = core.oauth.create_login_code(USER)
+    code, _ = core.grants.create_login_code(USER)
     approved = await http.post("/login", data={"request": request_id, "code": code.lower()})
     assert approved.status_code == 302
     callback = urlparse(approved.headers["location"])
@@ -89,7 +101,7 @@ async def _sign_in(core: ZeryaDiscordMcp, http: httpx.AsyncClient) -> dict[str, 
     assert params["state"] == ["xyz"]
     issuer = (await http.get("/.well-known/oauth-authorization-server")).json()["issuer"]
     assert params["iss"] == [issuer]  # RFC 9207: exactly the published issuer
-    assert core.oauth.consume_login_code(code) is None  # single use
+    assert core.grants.consume_login_code(code) is None  # single use
 
     token = await http.post(
         "/token",
@@ -134,7 +146,7 @@ async def test_oauth_flow_then_tool_call(tmp_path: Path) -> None:
             result = await session.call_tool("search", {"q": "fundacja logo"})
             text = result.content[0].text  # pyrefly: ignore[missing-attribute]
             assert "ustalamy logo fundacji" in text
-    grant = core.oauth.list_grants(USER)[0]
+    grant = core.grants.list_grants(USER)[0]
     audit = core.db.reader().execute("SELECT tool, user_id, grant_id, result_count FROM audit_log").fetchall()
     assert audit == [("search", USER, grant.id, 1)]
     assert "Claude" in (await core.commands.list(USER)).content
@@ -154,11 +166,11 @@ async def test_refresh_rotation_and_reuse_detection(tmp_path: Path) -> None:
         rotated = await refresh(tokens["refresh_token"])
         assert rotated.status_code == 200
         new_access = rotated.json()["access_token"]
-        assert core.oauth.verify_access(new_access) is not None
+        assert _tokens(core).verify_access(new_access) is not None
 
         # Replaying the old refresh token means it leaked: the whole connection ends.
         assert (await refresh(tokens["refresh_token"])).status_code == 400
-        assert core.oauth.verify_access(new_access) is None
+        assert _tokens(core).verify_access(new_access) is None
         assert (await refresh(rotated.json()["refresh_token"])).status_code == 400
 
 
@@ -166,7 +178,7 @@ async def test_revoke_from_discord_cuts_access(tmp_path: Path) -> None:
     core = _core(tmp_path)
     async with _client(core) as http:
         tokens = await _sign_in(core, http)
-        assert core.oauth.verify_access(tokens["access_token"]) is not None
+        assert _tokens(core).verify_access(tokens["access_token"]) is not None
         assert "Disconnected 1" in (await core.commands.revoke(USER, "all")).content
         response = await http.post("/mcp", json={}, headers={"Authorization": f"Bearer {tokens['access_token']}"})
         assert response.status_code == 401
@@ -194,7 +206,7 @@ async def test_too_many_wrong_codes_drop_the_request(tmp_path: Path) -> None:
         for _ in range(5):
             response = await http.post("/login", data={"request": request_id, "code": "BADC-ODE2"})
         assert response is not None and "expired" in response.text
-        code, _ = core.oauth.create_login_code(USER)
+        code, _ = core.grants.create_login_code(USER)
         response = await http.post("/login", data={"request": request_id, "code": code})
         assert response.status_code == 400 and "expired" in response.text
 

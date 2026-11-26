@@ -3,17 +3,19 @@ import string
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+from unittest.mock import Mock
 
+import hikari
 import pytest
 
-from zerya_discord_mcp.access.oauth import OAuthStore
+from zerya_discord_mcp.access.grants import GrantStore
 from zerya_discord_mcp.commands import COLOR_ERROR, COLOR_OK, COLOR_WARN, CommandResult, McpCommands
 from zerya_discord_mcp.config import Config
 from zerya_discord_mcp.diagnostics import SetupCheck
 from zerya_discord_mcp.i18n import _TEXTS, from_accept_language, from_locale, t
 from zerya_discord_mcp.index.db import Database
 from zerya_discord_mcp.testing.fixtures import GUILD_ID
-from zerya_discord_mcp.tests.grants import issue_grant
+from zerya_discord_mcp.tests.grants import add_grant
 
 USER, STRANGER = 42, 43
 CODE_BLOCK = re.compile(r"^```\n([A-Z2-9]{4}-[A-Z2-9]{4})\n```$")
@@ -24,7 +26,7 @@ class Env:
     def __init__(self, tmp_path: Path, **config: Any) -> None:
         self.db = Database(tmp_path / "c.sqlite3")
         self.db.open()
-        self.store = OAuthStore(self.db, access_ttl=3600, refresh_ttl=86400, login_ttl=600)
+        self.store = GrantStore(self.db, login_ttl=600)
         self.config = Config(db_path=tmp_path / "c.sqlite3", guild_id=GUILD_ID, **config)
         self.checks: list[SetupCheck] = []
         self.commands = McpCommands(self.store, self.config, lambda uid: uid == USER, self._report)
@@ -82,9 +84,9 @@ async def test_list_shows_active_connections(env: Env) -> None:
     assert empty.description == "You have no connected clients. Connect Claude with `/mcp login`."
     assert (await env.commands.list(USER, "pl")).description.startswith("Nie masz podłączonych klientów")
 
-    reader, _ = issue_grant(env.store, USER, "read")
-    writer, _ = issue_grant(env.store, USER, "read", "write")
-    revoked, _ = issue_grant(env.store, USER)
+    reader = add_grant(env.store, USER, "read")
+    writer = add_grant(env.store, USER, "read", "write")
+    revoked = add_grant(env.store, USER)
     env.store.revoke_grant(revoked)
 
     english = await env.commands.list(USER)
@@ -101,10 +103,10 @@ async def test_list_shows_active_connections(env: Env) -> None:
 
 
 async def test_revoke(env: Env) -> None:
-    first, _ = issue_grant(env.store, USER)
-    issue_grant(env.store, USER)
-    issue_grant(env.store, USER)
-    other, _ = issue_grant(env.store, STRANGER)
+    first = add_grant(env.store, USER)
+    add_grant(env.store, USER)
+    add_grant(env.store, USER)
+    other = add_grant(env.store, STRANGER)
 
     missing = await env.commands.revoke(USER, "  ")
     assert (missing.title, missing.color) == ("Nothing to disconnect", COLOR_ERROR)
@@ -125,7 +127,7 @@ async def test_setup_marks_failed_and_optional_checks(env: Env) -> None:
         SetupCheck(False, "Permission: View Channels", "grant it"),
         SetupCheck(False, "Public URL", "must be HTTPS", required=False),
     ]
-    result = await env.commands.setup()
+    result = await env.commands.setup(hikari.Permissions.MANAGE_GUILD)
     assert result.color == COLOR_ERROR
     assert result.description.splitlines() == [
         "Fix the items marked ❌ (⚠️ are optional).",
@@ -136,14 +138,25 @@ async def test_setup_marks_failed_and_optional_checks(env: Env) -> None:
     ]
 
     env.checks = [SetupCheck(True, "Bot is on the server"), SetupCheck(False, "Public URL", required=False)]
-    warned = await env.commands.setup("pl")
+    warned = await env.commands.setup(hikari.Permissions.MANAGE_GUILD, "pl")
     assert warned.color == COLOR_WARN
     assert warned.description.startswith("Popraw pozycje oznaczone ❌")
     assert warned.title == "Konfiguracja MCP · Discord"
 
     env.checks = [SetupCheck(True, "Bot is on the server")]
-    ready = await env.commands.setup()
+    ready = await env.commands.setup(hikari.Permissions.MANAGE_GUILD)
     assert (ready.color, ready.description) == (COLOR_OK, "Everything is ready.\n\n✅ **Bot is on the server**")
+
+
+@pytest.mark.parametrize("permissions", [hikari.Permissions.NONE, hikari.Permissions.SEND_MESSAGES])
+async def test_setup_is_refused_without_manage_server(env: Env, permissions: hikari.Permissions) -> None:
+    env.checks = [SetupCheck(True, "Bot is on the server", "Zerya")]
+    refused = await env.commands.setup(permissions, "pl")
+    assert refused.color == COLOR_ERROR and refused.description == "Wymagane uprawnienie Zarządzanie serwerem."
+    assert "Zerya" not in refused.content
+
+    allowed = await env.commands.setup(hikari.Permissions.ADMINISTRATOR)
+    assert allowed.color == COLOR_OK
 
 
 def test_plain_text_content() -> None:
@@ -185,3 +198,57 @@ def test_every_text_exists_in_both_languages_with_the_same_placeholders() -> Non
         assert set(texts) == {"en", "pl"}, key
         assert fields(texts["en"]) == fields(texts["pl"]), key
     assert t("revoke.done", "pl", count=3) == "Odłączono klientów: 3. Ich tokeny przestały działać od razu."
+
+
+def _interaction(
+    command: str,
+    subcommand: str | None = None,
+    *,
+    target: str | None = None,
+    permissions: hikari.Permissions = hikari.Permissions.NONE,
+    user_id: int = USER,
+) -> hikari.CommandInteraction:
+    interaction = Mock(spec=hikari.CommandInteraction)
+    interaction.command_name = command
+    interaction.locale = hikari.Locale.EN_US
+    interaction.user = Mock(spec=hikari.User, id=hikari.Snowflake(user_id))
+    interaction.member = Mock(spec=hikari.InteractionMember, permissions=permissions)
+    options = None
+    if target is not None:
+        options = [
+            hikari.CommandInteractionOption(name="target", type=hikari.OptionType.STRING, value=target, options=None)
+        ]
+    interaction.options = (
+        [
+            hikari.CommandInteractionOption(
+                name=subcommand, type=hikari.OptionType.SUB_COMMAND, value=None, options=options
+            )
+        ]
+        if subcommand
+        else None
+    )
+    return interaction
+
+
+async def test_handle_routes_raw_interactions_to_the_commands(env: Env) -> None:
+    login = await env.commands.handle(_interaction("mcp", "login"))
+    assert login is not None and login.title == "MCP sign-in code"
+
+    grant = add_grant(env.store, USER)
+    listed = await env.commands.handle(_interaction("mcp", "list"))
+    assert listed is not None and grant in listed.content
+
+    revoked = await env.commands.handle(_interaction("mcp", "revoke", target=grant))
+    assert revoked is not None and revoked.color == COLOR_OK
+    assert not env.store.list_grants(USER)[0].active
+
+    env.checks = [SetupCheck(True, "Bot is on the server")]
+    setup = await env.commands.handle(_interaction("mcp-setup", permissions=hikari.Permissions.MANAGE_GUILD))
+    assert setup is not None and setup.color == COLOR_OK
+    refused = await env.commands.handle(_interaction("mcp-setup"))
+    assert refused is not None and refused.color == COLOR_ERROR
+
+
+async def test_handle_ignores_other_commands(env: Env) -> None:
+    assert await env.commands.handle(_interaction("ping")) is None
+    assert await env.commands.handle(_interaction("mcp")) is None

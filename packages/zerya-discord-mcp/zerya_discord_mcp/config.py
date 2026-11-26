@@ -46,7 +46,8 @@ class Config(BaseSettings):
     search_budget_tokens: int = 4000
     read_budget_tokens: int = 6000
     # Origin the HTTP app is served at, e.g. https://mcp.zerya.dev (OAuth issuer; MCP endpoint is {public_url}/mcp).
-    # Required for asgi_app(). Mount the app at the root of this origin: OAuth discovery uses /.well-known/ paths.
+    # Required for zerya_discord_mcp.mcp.McpAsgiApp. Serve it at the root of this origin: OAuth discovery uses
+    # /.well-known/ paths.
     public_url: str | None = None
     # Name shown on the sign-in page, in /mcp texts and to agents. Default: the Discord server's name.
     server_name: str | None = None

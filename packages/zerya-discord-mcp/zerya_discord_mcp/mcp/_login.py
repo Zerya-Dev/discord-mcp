@@ -8,8 +8,9 @@ from mcp.server.auth.provider import construct_redirect_uri
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 
-from zerya_discord_mcp.access.oauth import SCOPE_WRITE, OAuthStore, PendingRequest
+from zerya_discord_mcp.access.grants import SCOPE_WRITE
 from zerya_discord_mcp.i18n import Lang, from_accept_language, t
+from zerya_discord_mcp.mcp._oauth import OAuthStore, PendingRequest
 
 _HEADERS = {
     "X-Frame-Options": "DENY",
@@ -120,7 +121,7 @@ def login_endpoint(
         pending = await asyncio.to_thread(store.get_request, request_id) if request_id else None
         if pending is None:
             return _expired(lang)
-        user_id = await asyncio.to_thread(store.consume_login_code, code)
+        user_id = await asyncio.to_thread(store.grants.consume_login_code, code)
         if user_id is None:
             left = await asyncio.to_thread(store.fail_request, request_id)
             if left == 0:

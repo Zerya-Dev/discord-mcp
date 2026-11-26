@@ -21,9 +21,8 @@ classifiers = [
 ]
 requires-python = ">=3.14, <3.15"
 dependencies = [
-    "hikari-arc>=2.3",
     "uvicorn>=0.54",
-    "zerya-discord-mcp[mcp]",
+    "zerya-discord-mcp[arc,mcp]",
 ]
 
 [project.urls]

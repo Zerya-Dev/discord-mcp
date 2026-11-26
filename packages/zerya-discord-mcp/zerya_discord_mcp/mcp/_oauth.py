@@ -3,20 +3,17 @@
 Flow: the client registers (RFC 7591) and sends the user to /authorize. We park the request and show a sign-in
 page; the user runs /mcp login on Discord, which proves who they are, and pastes the one-time code. The page then
 issues an authorization code bound to that Discord user, and the client exchanges it (with PKCE) for an access
-token and a rotating refresh token. Every token belongs to a grant, which /mcp list shows and /mcp revoke ends.
+token and a rotating refresh token. The exchange creates the grant (``access.grants``) that every token belongs to.
 
-Only SHA-256 hashes of codes and tokens are stored. What a grant can read is still decided per request from the
-user's live Discord permissions; the grant only says who the user is.
+Only SHA-256 hashes of codes and tokens are stored.
 """
 
 import asyncio
-import hashlib
 import json
 import secrets
 import sqlite3
 import time
 from dataclasses import dataclass
-from typing import Any
 
 from mcp.server.auth.provider import (
     AccessToken,
@@ -28,67 +25,22 @@ from mcp.server.auth.provider import (
 )
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 
+from zerya_discord_mcp.access.grants import (
+    GRANT_COLUMNS,
+    SCOPE_READ,
+    Grant,
+    GrantStore,
+    extend_grant,
+    grant_from_row,
+    hash_secret,
+    insert_grant,
+)
 from zerya_discord_mcp.index.db import Database
 
-SCOPE_READ = "read"
-SCOPE_WRITE = "write"
-LOGIN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O, 1/I
-LOGIN_CODE_LENGTH = 8
 MAX_LOGIN_ATTEMPTS = 5
 REQUEST_TTL = 900
 AUTH_CODE_TTL = 300
-LAST_USED_RESOLUTION = 60
-
-
-def _hash(value: str) -> str:
-    return hashlib.sha256(value.encode()).hexdigest()
-
-
-def normalize_login_code(text: str) -> str:
-    return "".join(ch for ch in text.upper() if ch.isalnum())
-
-
-def format_login_code(code: str) -> str:
-    return f"{code[:4]}-{code[4:]}"
-
-
-@dataclass(frozen=True, slots=True)
-class Grant:
-    id: str
-    user_id: int
-    client_id: str
-    client_name: str | None
-    scopes: tuple[str, ...]
-    created_at: int
-    last_used_at: int | None
-    expires_at: int
-    revoked_at: int | None
-
-    @property
-    def active(self) -> bool:
-        return self.revoked_at is None and self.expires_at > time.time()
-
-    @property
-    def can_write(self) -> bool:
-        return SCOPE_WRITE in self.scopes
-
-
-_GRANT_COLUMNS = "id, user_id, client_id, client_name, scopes, created_at, last_used_at, expires_at, revoked_at"
-
-
-def _grant(row: tuple[Any, ...]) -> Grant:
-    gid, user_id, client_id, name, scopes, created, used, expires, revoked = row
-    return Grant(
-        id=str(gid),
-        user_id=int(user_id),
-        client_id=str(client_id),
-        client_name=str(name) if name else None,
-        scopes=tuple(str(scopes).split()),
-        created_at=int(created),
-        last_used_at=int(used) if used is not None else None,
-        expires_at=int(expires),
-        revoked_at=int(revoked) if revoked is not None else None,
-    )
+REVOKED_TOKEN_RETENTION = 30 * 86400
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,11 +53,11 @@ class PendingRequest:
 class OAuthStore:
     """Synchronous persistence for the OAuth flow (call from a worker thread in async code)."""
 
-    def __init__(self, db: Database, *, access_ttl: int, refresh_ttl: int, login_ttl: int) -> None:
+    def __init__(self, db: Database, grants: GrantStore, *, access_ttl: int, refresh_ttl: int) -> None:
         self.db = db
+        self.grants = grants
         self.access_ttl = access_ttl
         self.refresh_ttl = refresh_ttl
-        self.login_ttl = login_ttl
 
     # Clients --------------------------------------------------------------------------------------------
 
@@ -121,34 +73,6 @@ class OAuthStore:
                 (client.client_id, payload, int(time.time())),
             )
         )
-
-    # Sign-in codes (/mcp login) -------------------------------------------------------------------------
-
-    def create_login_code(self, user_id: int) -> tuple[str, int]:
-        code = "".join(secrets.choice(LOGIN_ALPHABET) for _ in range(LOGIN_CODE_LENGTH))
-        now = int(time.time())
-        expires = now + self.login_ttl
-
-        def apply(conn: sqlite3.Connection) -> None:
-            conn.execute("DELETE FROM login_codes WHERE expires_at < ? OR user_id = ?", (now, user_id))
-            conn.execute(
-                "INSERT INTO login_codes (hash, user_id, expires_at) VALUES (?, ?, ?)", (_hash(code), user_id, expires)
-            )
-
-        self.db.write(apply)
-        return format_login_code(code), expires
-
-    def consume_login_code(self, code: str) -> int | None:
-        digest = _hash(normalize_login_code(code))
-
-        def apply(conn: sqlite3.Connection) -> int | None:
-            row = conn.execute("SELECT user_id, expires_at FROM login_codes WHERE hash = ?", (digest,)).fetchone()
-            if row is None:
-                return None
-            conn.execute("DELETE FROM login_codes WHERE hash = ?", (digest,))
-            return int(row[0]) if int(row[1]) >= time.time() else None
-
-        return self.db.write(apply)
 
     # Pending /authorize requests ------------------------------------------------------------------------
 
@@ -217,7 +141,7 @@ class OAuthStore:
             conn.execute("DELETE FROM oauth_codes WHERE expires_at < ?", (int(time.time()),))
             conn.execute(
                 "INSERT INTO oauth_codes (hash, grant_id, data, expires_at) VALUES (?, '', ?, ?)",
-                (_hash(code), json.dumps(data), int(time.time()) + AUTH_CODE_TTL),
+                (hash_secret(code), json.dumps(data), int(time.time()) + AUTH_CODE_TTL),
             )
 
         self.db.write(apply)
@@ -229,7 +153,7 @@ class OAuthStore:
         row = (
             self.db
             .reader()
-            .execute("SELECT data, expires_at FROM oauth_codes WHERE hash = ?", (_hash(code),))
+            .execute("SELECT data, expires_at FROM oauth_codes WHERE hash = ?", (hash_secret(code),))
             .fetchone()
         )
         if row is None:
@@ -250,24 +174,17 @@ class OAuthStore:
         )
 
     def exchange_code(self, client: OAuthClientInformationFull, code: AuthorizationCode) -> OAuthToken:
-        grant_id = secrets.token_hex(8)
-        now = int(time.time())
-
         def apply(conn: sqlite3.Connection) -> OAuthToken:
-            deleted = conn.execute("DELETE FROM oauth_codes WHERE hash = ?", (_hash(code.code),)).rowcount
+            deleted = conn.execute("DELETE FROM oauth_codes WHERE hash = ?", (hash_secret(code.code),)).rowcount
             if deleted == 0:
                 raise TokenError("invalid_grant", "authorization code already used")
-            conn.execute(
-                f"INSERT INTO grants ({_GRANT_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL)",
-                (
-                    grant_id,
-                    int(code.subject or 0),
-                    client.client_id,
-                    client.client_name,
-                    " ".join(code.scopes),
-                    now,
-                    now + self.refresh_ttl,
-                ),
+            grant_id = insert_grant(
+                conn,
+                int(code.subject or 0),
+                client.client_id,
+                client.client_name,
+                code.scopes,
+                int(time.time()) + self.refresh_ttl,
             )
             return self._issue(conn, grant_id, code.scopes)
 
@@ -282,11 +199,11 @@ class OAuthStore:
         conn.executemany(
             "INSERT INTO oauth_tokens (hash, kind, grant_id, expires_at) VALUES (?, ?, ?, ?)",
             [
-                (_hash(access), "access", grant_id, now + self.access_ttl),
-                (_hash(refresh), "refresh", grant_id, now + self.refresh_ttl),
+                (hash_secret(access), "access", grant_id, now + self.access_ttl),
+                (hash_secret(refresh), "refresh", grant_id, now + self.refresh_ttl),
             ],
         )
-        conn.execute("UPDATE grants SET expires_at = ? WHERE id = ?", (now + self.refresh_ttl, grant_id))
+        extend_grant(conn, grant_id, now + self.refresh_ttl)
         conn.execute("DELETE FROM oauth_tokens WHERE expires_at < ?", (now,))
         return OAuthToken(
             access_token=access, expires_in=self.access_ttl, scope=" ".join(scopes), refresh_token=refresh
@@ -297,15 +214,15 @@ class OAuthStore:
             self.db
             .reader()
             .execute(
-                f"SELECT t.expires_at, t.revoked_at, {', '.join('g.' + c for c in _GRANT_COLUMNS.split(', '))} "
+                f"SELECT t.expires_at, t.revoked_at, {', '.join('g.' + c for c in GRANT_COLUMNS.split(', '))} "
                 "FROM oauth_tokens t JOIN grants g ON g.id = t.grant_id WHERE t.hash = ? AND t.kind = ?",
-                (_hash(token), kind),
+                (hash_secret(token), kind),
             )
             .fetchone()
         )
         if row is None:
             return None
-        return _grant(row[2:]), int(row[0]), int(row[1]) if row[1] is not None else None
+        return grant_from_row(row[2:]), int(row[0]), int(row[1]) if row[1] is not None else None
 
     def load_refresh(self, client_id: str, token: str) -> RefreshToken | None:
         found = self._token_grant(token, "refresh")
@@ -314,7 +231,7 @@ class OAuthStore:
         grant, expires, revoked = found
         if revoked is not None:
             # A rotated refresh token came back: someone holds a copy. End the whole grant.
-            self.revoke_grant(grant.id)
+            self.grants.revoke_grant(grant.id)
             return None
         if grant.client_id != client_id or not grant.active or expires < time.time():
             return None
@@ -334,7 +251,7 @@ class OAuthStore:
             # Conditional update: of two concurrent refreshes with the same token only one wins.
             rotated = conn.execute(
                 "UPDATE oauth_tokens SET revoked_at = ? WHERE hash = ? AND revoked_at IS NULL",
-                (now, _hash(refresh.token)),
+                (now, hash_secret(refresh.token)),
             ).rowcount
             if rotated == 0:
                 raise TokenError("invalid_grant", "refresh token already used")
@@ -349,9 +266,7 @@ class OAuthStore:
         grant, expires, revoked = found
         if revoked is not None or expires < time.time() or not grant.active:
             return None
-        now = int(time.time())
-        if grant.last_used_at is None or now - grant.last_used_at >= LAST_USED_RESOLUTION:
-            self.db.write(lambda c: c.execute("UPDATE grants SET last_used_at = ? WHERE id = ?", (now, grant.id)))
+        self.grants.mark_used(grant)
         return grant
 
     def access_token(self, token: str) -> AccessToken | None:
@@ -371,64 +286,31 @@ class OAuthStore:
         for kind in ("access", "refresh"):
             found = self._token_grant(token, kind)
             if found is not None:
-                self.revoke_grant(found[0].id)
+                self.grants.revoke_grant(found[0].id)
 
     # Housekeeping ---------------------------------------------------------------------------------------
 
     def housekeeping(self) -> dict[str, int]:
-        """Drops expired codes, requests and tokens, old ended grants and clients that never connected."""
+        """Drops expired requests, codes and tokens, tokens of deleted grants and clients that never connected."""
         now = int(time.time())
-        month_ago = now - 30 * 86400
 
         def apply(conn: sqlite3.Connection) -> dict[str, int]:
-            counts = {
-                "login_codes": conn.execute("DELETE FROM login_codes WHERE expires_at < ?", (now,)).rowcount,
+            return {
                 "requests": conn.execute("DELETE FROM oauth_requests WHERE expires_at < ?", (now,)).rowcount,
                 "codes": conn.execute("DELETE FROM oauth_codes WHERE expires_at < ?", (now,)).rowcount,
+                "tokens": conn.execute(
+                    "DELETE FROM oauth_tokens WHERE expires_at < ? OR revoked_at < ? "
+                    "OR grant_id NOT IN (SELECT id FROM grants)",
+                    (now, now - REVOKED_TOKEN_RETENTION),
+                ).rowcount,
+                "clients": conn.execute(
+                    "DELETE FROM oauth_clients "
+                    "WHERE created_at < ? AND client_id NOT IN (SELECT client_id FROM grants)",
+                    (now - 86400,),
+                ).rowcount,
             }
-            old_grants = [
-                str(r[0])
-                for r in conn.execute("SELECT id FROM grants WHERE coalesce(revoked_at, expires_at) < ?", (month_ago,))
-            ]
-            conn.executemany("DELETE FROM oauth_tokens WHERE grant_id = ?", [(g,) for g in old_grants])
-            conn.executemany("DELETE FROM grants WHERE id = ?", [(g,) for g in old_grants])
-            counts["grants"] = len(old_grants)
-            counts["tokens"] = conn.execute(
-                "DELETE FROM oauth_tokens WHERE expires_at < ? OR revoked_at < ?", (now, month_ago)
-            ).rowcount
-            counts["clients"] = conn.execute(
-                "DELETE FROM oauth_clients WHERE created_at < ? AND client_id NOT IN (SELECT client_id FROM grants)",
-                (now - 86400,),
-            ).rowcount
-            return counts
 
         return self.db.write(apply)
-
-    # Grants ---------------------------------------------------------------------------------------------
-
-    def list_grants(self, user_id: int) -> list[Grant]:
-        rows = self.db.reader().execute(
-            f"SELECT {_GRANT_COLUMNS} FROM grants WHERE user_id = ? ORDER BY created_at DESC", (user_id,)
-        )
-        return [_grant(r) for r in rows]
-
-    def revoke_grant(self, grant_id: str) -> None:
-        now = int(time.time())
-
-        def apply(conn: sqlite3.Connection) -> None:
-            conn.execute("UPDATE grants SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL", (now, grant_id))
-            conn.execute(
-                "UPDATE oauth_tokens SET revoked_at = ? WHERE grant_id = ? AND revoked_at IS NULL", (now, grant_id)
-            )
-
-        self.db.write(apply)
-
-    def revoke_user_grants(self, user_id: int, grant_id: str | None) -> int:
-        """Revokes one grant by ID, or all of the user's active grants when grant_id is None."""
-        targets = [g.id for g in self.list_grants(user_id) if g.active and (grant_id is None or g.id == grant_id)]
-        for gid in targets:
-            self.revoke_grant(gid)
-        return len(targets)
 
 
 class OAuthProvider:

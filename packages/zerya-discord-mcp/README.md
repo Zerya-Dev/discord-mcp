@@ -8,17 +8,18 @@ that returns context "hooks", live per-member Discord permissions, and a remote 
 sign-in (`/mcp login`). Works as a claude.ai custom connector and in Claude Code.
 
 ```bash
-pip install "zerya-discord-mcp[mcp]"
+pip install "zerya-discord-mcp[arc,mcp]"   # the core alone: pip install zerya-discord-mcp
 ```
 
 ```python
-from zerya_discord_mcp import Config, ZeryaDiscordMcp
+from zerya_discord_mcp import REQUIRED_INTENTS, Config, ZeryaDiscordMcp
+from zerya_discord_mcp.arc import McpPlugin  # [arc] extra
+from zerya_discord_mcp.mcp import McpAsgiApp  # [mcp] extra
 
-zdm = ZeryaDiscordMcp(
-    bot, Config(db_path=Path("/data/zdm.sqlite3"), guild_id=GUILD_ID, public_url="https://mcp.example.com")
-)
-# StartedEvent: await zdm.start()   StoppingEvent: await zdm.stop()
-app = zdm.asgi_app()  # ASGI app to serve at the root of public_url
+bot = hikari.GatewayBot(token, intents=hikari.Intents.ALL_UNPRIVILEGED | REQUIRED_INTENTS)
+zdm = ZeryaDiscordMcp(bot, Config())  # settings from ZDM_* environment variables
+arc_client.add_plugin(McpPlugin(zdm))  # starts and stops with the bot, adds /mcp and /mcp-setup
+app = McpAsgiApp(zdm)  # ASGI app to serve at the root of ZDM_PUBLIC_URL
 ```
 
 Prefer a ready-made bot? Use the Docker image `ghcr.io/zerya-dev/zerya-discord-mcp-bot`. Documentation, security model and configuration:

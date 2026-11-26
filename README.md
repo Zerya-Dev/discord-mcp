@@ -149,41 +149,41 @@ output budgets, bot/HTTP switches) is documented in **[docs/configuration.md](do
 
 ## Embedding in an existing hikari bot
 
-The library does everything except owning the bot and the HTTP server:
+The library does everything except owning the bot and the HTTP server. It has a framework-neutral core and two
+optional integrations:
+
+| Install | Import | What it adds |
+|---|---|---|
+| `zerya-discord-mcp` | `zerya_discord_mcp` | Index, permissions, sign-in codes, the tools as async functions, command logic |
+| `[arc]` extra | `zerya_discord_mcp.arc.McpPlugin` | Starts and stops the library with the bot; `/mcp` and `/mcp-setup` |
+| `[mcp]` extra | `zerya_discord_mcp.mcp.McpAsgiApp` | Remote MCP server with OAuth sign-in, as an ASGI app |
+
+With [arc](https://github.com/hypergonial/hikari-arc):
 
 ```python
-from zerya_discord_mcp import Config, ZeryaDiscordMcp
+from zerya_discord_mcp import REQUIRED_INTENTS, Config, ZeryaDiscordMcp
+from zerya_discord_mcp.arc import McpPlugin
+from zerya_discord_mcp.mcp import McpAsgiApp
 
-zdm = ZeryaDiscordMcp(
-    bot, Config(db_path=Path("/data/zdm.sqlite3"), guild_id=GUILD_ID, public_url="https://mcp.example.com")
-)  # before bot.run()
-
-
-@bot.listen(hikari.StartedEvent)
-async def _(_: hikari.StartedEvent) -> None:
-    await zdm.start()  # migrations, backfill and maintenance in the background
-
-
-@bot.listen(hikari.StoppingEvent)
-async def _(_: hikari.StoppingEvent) -> None:
-    await zdm.stop()
-
-
-app = zdm.asgi_app()  # serve at the root of ZDM_PUBLIC_URL (any thread; REST hops to the bot loop)
-result = await zdm.commands.login(user_id, locale)  # wire /mcp into your command framework; result.to_embed()
+bot = hikari.GatewayBot(token, intents=hikari.Intents.ALL_UNPRIVILEGED | REQUIRED_INTENTS)
+zdm = ZeryaDiscordMcp(bot, Config())  # before bot.run(); every setting from ZDM_* environment variables
+arc_client.add_plugin(McpPlugin(zdm))  # lifecycle, setup checklist in the log, /mcp login | list | revoke, /mcp-setup
+app = McpAsgiApp(zdm)  # serve at the root of ZDM_PUBLIC_URL (any thread; Discord calls hop to the bot loop)
 ```
 
 ```bash
-pip install "zerya-discord-mcp[mcp]"     # or: uv add "zerya-discord-mcp[mcp]"
+pip install "zerya-discord-mcp[arc,mcp]"     # or: uv add "zerya-discord-mcp[arc,mcp]"
 ```
 
-Needs the `MESSAGE_CONTENT` and `GUILD_MEMBERS` intents.
+Another command framework: register `command_builders()` (or your framework's equivalent of them) and call
+`zdm.commands` (`login`, `list`, `revoke`, `setup`); each returns a `CommandResult` with `to_embed()`.
+`McpPlugin(zdm, manage_lifecycle=False)` leaves start and stop to you with arc too.
 
 ## Development
 
 ```bash
 uv sync --all-packages
-just test lint typecheck      # pytest, ruff, pyrefly (strict)
+just test lint typecheck      # pytest, ruff + module boundaries (import-linter), pyrefly (strict)
 just index                    # run the bot locally without slash commands
 just search "(logo|logotyp) after:2026-09"     # query a local index as an admin
 just eval eval/questions.yaml  # recall@10 / MRR on your own questions

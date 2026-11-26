@@ -4,7 +4,7 @@ format:
   uv run ruff check --fix && uv format
 
 lint:
-  uv run ruff check && uv format --check
+  uv run ruff check && uv format --check && uv run lint-imports
 
 typecheck:
   uv run pyrefly check

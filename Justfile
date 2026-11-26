@@ -12,6 +12,10 @@ typecheck:
 test:
   uv run pytest
 
+# The built wheel with every combination of extras, in fresh virtualenvs, running the examples
+test-install:
+  uv run pytest -m install
+
 # Standalone bot (gateway + /mcp commands + MCP HTTP server)
 dev:
   uv run start-app

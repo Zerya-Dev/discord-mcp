@@ -29,6 +29,9 @@ jobs:
       - name: Run Tests
         run: uv run pytest
 
+      - name: Run install tests (wheel with each extras combination, examples)
+        run: uv run pytest -m install
+
       - name: Run Lint
         run: uv run ruff check
 

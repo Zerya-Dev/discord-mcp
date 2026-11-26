@@ -22,5 +22,8 @@ arc_client.add_plugin(McpPlugin(zdm))  # starts and stops with the bot, adds /mc
 app = McpAsgiApp(zdm)  # ASGI app to serve at the root of ZDM_PUBLIC_URL
 ```
 
+Without arc or without MCP, see the
+[examples](https://github.com/Zerya-Dev/discord-mcp/tree/main/examples).
+
 Prefer a ready-made bot? Use the Docker image `ghcr.io/zerya-dev/zerya-discord-mcp-bot`. Documentation, security model and configuration:
 <https://github.com/Zerya-Dev/discord-mcp>.

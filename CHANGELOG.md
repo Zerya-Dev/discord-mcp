@@ -19,6 +19,7 @@ Breaking changes are listed under Changed and Removed.
 - `ZeryaDiscordMcp.log_setup_report()`, `ZeryaDiscordMcp.add_housekeeping()`, and `REQUIRED_INTENTS`, `Grant`,
   `SetupCheck` and `McpCommands` exported from `zerya_discord_mcp`.
 - Importing an integration without its extra fails with the `pip install` command to run.
+- [examples/](examples/) with three tested programs: arc, plain hikari, and the core alone.
 
 ### Changed
 
@@ -33,7 +34,7 @@ Breaking changes are listed under Changed and Removed.
 
 - `pip install zerya-discord-mcp` without the `[mcp]` extra failed on `import zerya_discord_mcp` (the core imported
   the MCP SDK). The core no longer depends on any integration; CI enforces the module boundaries with
-  import-linter.
+  import-linter and installs the wheel with each combination of extras.
 
 ## [1.0.0] - 2026-11-23
 

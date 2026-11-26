@@ -175,6 +175,13 @@ app = McpAsgiApp(zdm)  # serve at the root of ZDM_PUBLIC_URL (any thread; Discor
 pip install "zerya-discord-mcp[arc,mcp]"     # or: uv add "zerya-discord-mcp[arc,mcp]"
 ```
 
+Complete, tested programs are in [examples/](examples/):
+
+- [`arc_bot.py`](examples/arc_bot.py): arc bot with the plugin and the MCP server (`[arc,mcp]`).
+- [`hikari_bot.py`](examples/hikari_bot.py): plain hikari, no command framework (`[mcp]`). It starts and stops the
+  library itself, registers the commands with `upsert_commands()` and answers them with `zdm.commands.handle()`.
+- [`core_only.py`](examples/core_only.py): no MCP, no arc. Your own code calls `zdm.tools.search()` as a member.
+
 Another command framework: register `command_builders()` (or your framework's equivalent of them) and call
 `zdm.commands` (`login`, `list`, `revoke`, `setup`); each returns a `CommandResult` with `to_embed()`.
 `McpPlugin(zdm, manage_lifecycle=False)` leaves start and stop to you with arc too.
@@ -184,6 +191,7 @@ Another command framework: register `command_builders()` (or your framework's eq
 ```bash
 uv sync --all-packages
 just test lint typecheck      # pytest, ruff + module boundaries (import-linter), pyrefly (strict)
+just test-install             # the built wheel with each extras combination in fresh virtualenvs, running the examples
 just index                    # run the bot locally without slash commands
 just search "(logo|logotyp) after:2026-09"     # query a local index as an admin
 just eval eval/questions.yaml  # recall@10 / MRR on your own questions

@@ -39,8 +39,11 @@ zerya-discord-mcp-bot = { workspace = true }
 testpaths = [
     "packages/zerya-discord-mcp/zerya_discord_mcp/tests",
     "packages/zerya-discord-mcp-bot/zerya_discord_mcp_bot/tests",
+    "examples/tests",
 ]
 asyncio_mode = "auto"
+markers = ["install: installs the built wheel into fresh virtualenvs (slow, needs the package index or uv's cache)"]
+addopts = "-m 'not install'"
 
 [tool.ruff]
 line-length = 120
@@ -60,8 +63,8 @@ select = [
 
 [tool.pyrefly]
 preset = "strict"
-project-includes = ["packages/**/*.py"]
-search-path = ["packages/zerya-discord-mcp", "packages/zerya-discord-mcp-bot"]
+project-includes = ["packages/**/*.py", "examples/**/*.py"]
+search-path = [".", "packages/zerya-discord-mcp", "packages/zerya-discord-mcp-bot"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["zerya_discord_mcp", "zerya_discord_mcp_bot"]
